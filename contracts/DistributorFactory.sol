@@ -6,17 +6,25 @@ import './Distributor.sol';
 
 contract DistributorFactory {
 
-    Distributor public distributorContract;
+    mapping (uint => address)     public indexesToContracts;
+    uint                          public contractsCount;
 
-    mapping (uint => Distributor) public indexesToContracts;
-    uint private _index;
+    function create() public returns (address) {
+        Distributor distributorContract = new Distributor(msg.sender);
 
-    function create() public returns (Distributor) {
-        distributorContract = new Distributor(msg.sender);
+        indexesToContracts[contractsCount] = address(distributorContract);
+        contractsCount++;
 
-        indexesToContracts[_index] = distributorContract;
-        _index++;
-
-        return distributorContract;
+        return address(distributorContract);
     }
+
+    function getAll() public view returns (address[] memory) {
+        address[] memory distributors = new address[](contractsCount);
+
+        for (uint i; i < contractsCount; i++) {
+            distributors[i] = address(indexesToContracts[i]);
+        }
+
+        return distributors;
+    } 
 }
