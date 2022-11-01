@@ -46,8 +46,11 @@ contract Distributor {
 
     mapping (address => Registration)   public registrations;
     mapping (address => Participation)  public participations;
+    mapping (address => uint)           public addressToEvent;
+    mapping (address => bool)           public addressToWithdraw;
 
     uint256             public vestingPrecision;
+    uint256             public vestingEventsCount;
     uint256[]           public vestingPortionsUnlockTime;
     uint256[]           public vestingPercentPerPortion;
 
@@ -58,9 +61,9 @@ contract Distributor {
 
     event Participated(address indexed account, uint256 timestamp);
     event Registered(address indexed account, uint256 timestamp);
+    event DistributionRoundSet(uint256 timestamp);
     event RegistrationRoundSet(uint256 timestamp);
     event RegistrationRoundStopped(uint256 timestamp);
-    event LeftoverWithdrawn(uint256 amount, uint256 timestamp);
     event TokensWithdrawn(address indexed account, uint256 amount);
     event VestingParametersSet(uint256 timestamp);
 
@@ -112,7 +115,13 @@ contract Distributor {
     }
 
     function withdraw() public {
+        require(
+            vestingPercentPerPortion.length > 0 &&
+            vestingPortionsUnlockTime.length > 0,
+            'Vesting parameters already set'
+        );
         require(participations[msg.sender].isParticipated, 'Address is not participated in distribution');
+        require(addressToWithdraw[msg.sender], 'Address already widthdrawn');
 
         uint256 totalToWithdraw = 0;
         Registration storage registration = registrations[msg.sender];
@@ -131,10 +140,60 @@ contract Distributor {
             }
         }
 
+        addressToWithdraw[msg.sender] = true;
+
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
         distribution.token.safeTransfer(msg.sender, totalToWithdraw);
         
         emit TokensWithdrawn(msg.sender, totalToWithdraw);
+    }
+
+    function withdrawEvent() public {
+        require(vestingEventsCount > 0, 'Vesting parameters are not set');
+        require(!addressToWithdraw[msg.sender], 'Address already widthdrawn');
+
+        uint256 totalToWithdraw = 0;
+        Registration storage registration = registrations[msg.sender];
+
+        require(registration.distributionAmount > 0, 'There is nothing to withdraw');
+        
+        uint addressEvent = addressToEvent[msg.sender];
+        for (uint i = 0; i < addressEvent; i++) {
+            uint256 amountWithdrawing = registration
+                .distributionAmount
+                .mul(vestingPercentPerPortion[i])
+                .div(vestingPrecision);
+
+            registration.distributionAmount = registration.distributionAmount.sub(amountWithdrawing);
+            totalToWithdraw = totalToWithdraw.add(amountWithdrawing);
+        }
+
+        addressToWithdraw[msg.sender] = true;
+
+        require(totalToWithdraw > 0, 'There is nothing to widthdraw');
+        distribution.token.safeTransfer(msg.sender, totalToWithdraw);
+        
+        emit TokensWithdrawn(msg.sender, totalToWithdraw);
+    }
+
+    function setEventVestingParams(
+        uint256 _eventsCount,
+        uint256[] memory _percents
+    ) public onlyAdmin {
+        require(_eventsCount == _percents.length, 'Events could must be equal with Percept Per Portion length');
+        require(distribution.isCreated, 'Distribution is not created');
+
+        vestingEventsCount = _eventsCount;
+
+        uint256 precision = 0;
+        for (uint256 i = 0; i < _eventsCount; i++) {
+            vestingPercentPerPortion.push(_percents[i]);
+            precision = precision.add(_percents[i]);
+        }
+
+        require(vestingPrecision == precision, 'Precision percents issue');
+
+        emit VestingParametersSet(block.timestamp);
     }
 
     function setVestingParams(
@@ -198,10 +257,23 @@ contract Distributor {
         emit RegistrationRoundSet(block.timestamp);
     }
 
+    function setDistributionRound(uint256 _startDate, uint256 _endDate) public onlyAdmin {
+        distributionRound = DistributionRound({
+            startDate: _startDate,
+            endDate: _endDate
+        });
+
+        emit DistributionRoundSet(block.timestamp);
+    }
+
     function stopRegistrationRound() public onlyAdmin {
         registrationRound.isStopped = true;
 
         emit RegistrationRoundStopped(block.timestamp);
+    }
+
+    function setAddressEvent(address _address, uint _event) public onlyDistributionOwner {
+       addressToEvent[_address] = _event;
     }
 
     function depositTokens() public onlyDistributionOwner {
@@ -215,19 +287,5 @@ contract Distributor {
             address(this),
             distribution.amountOfTokensToDistribute
         );
-    }
-
-    function withdrawLeftover() public onlyDistributionOwner {
-        require(block.timestamp >= vestingPortionsUnlockTime[vestingPortionsUnlockTime.length - 1], 'Distribtuion is not over yet');
-        require(!distribution.leftoverWithdrawn, 'Leftover already withdrawn');
-
-        distribution.leftoverWithdrawn = true;
-
-        uint256 leftover = distribution.amountOfTokensToDistribute.sub(distribution.totalTokensDistributed);
-        
-        require(leftover > 0, 'There is nothing to withdraw');
-        distribution.token.safeTransfer(msg.sender, leftover);
-
-        emit LeftoverWithdrawn(leftover, block.timestamp);
     }
 }

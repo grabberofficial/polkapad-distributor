@@ -1,12 +1,18 @@
+import time
 from brownie import accounts, network, config, DistributorFactory
 
 DEPLOYER = (0, "deployer_pk")
+
+def set_registration_round(distributor, admin):
+    today = time.time()
+    tomorrow = today + 60 * 60 * 24
+
+    distributor.setRegistrationRound(int(today), int(tomorrow), { "from": admin })
 
 def deploy_factory(deployer):
     contract = DistributorFactory.deploy({ "from": deployer })
 
     return contract
-
 
 def get_account(account):
     dev_index = account[0]
