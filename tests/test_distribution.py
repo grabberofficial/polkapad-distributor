@@ -1,9 +1,7 @@
-from brownie import accounts, reverts, Distributor
-from brownie.exceptions import VirtualMachineError
+from brownie import chain, accounts, reverts, Distributor
 from scripts.deploy import *
 
 import pytest
-import time
 
 @pytest.fixture
 def distributor(factory, admin):
@@ -11,6 +9,10 @@ def distributor(factory, admin):
     address = factory.indexesToContracts(0)
 
     return Distributor.at(address)
+
+@pytest.fixture
+def token(deployer):
+    return deploy_token(deployer)
 
 @pytest.fixture
 def factory(deployer):
@@ -25,45 +27,76 @@ def admin():
     return accounts[1]
 
 @pytest.fixture
-def sender():
+def owner():
     return accounts[2]
 
-def test_set_registration_round_should_set(distributor, admin):
+@pytest.fixture
+def sender():
+    return accounts[3]
+
+def test_set_distribution_parameters_should_set(distributor, admin, token, owner):
+    set_distribution_parameters(distributor, admin, token, owner)
+
+    is_created = distributor.distribution()[2]
+
+    assert is_created is True
+
+def test_set_distribution_parameters_as_not_admin_should_fail(distributor, sender, token, owner):
+    with reverts('Allows admin address only'):
+        set_distribution_parameters(distributor, sender, token, owner)
+
+def test_set_distribution_parameters_twice_should_fail(distributor, admin, token, owner):
+    set_distribution_parameters(distributor, admin, token, owner)
+    with reverts('Distribution already created'):
+        set_distribution_parameters(distributor, admin, token, owner)
+
+def test_set_distribution_round_should_set(distributor, admin, token, owner):
     set_registration_round(distributor, admin)
-    
-    registration_round_startdate = distributor.registrationRound()[0]
-    registration_round_enddate = distributor.registrationRound()[1]
-    registration_round_stopped = distributor.registrationRound()[2]
+    set_distribution_parameters(distributor, admin, token, owner)
+    set_distribution_round(distributor, admin)
 
-    registration_round_not_over = time.time() > registration_round_startdate and time.time() < registration_round_enddate and registration_round_stopped is False
+    distribution_round_startdate = distributor.distributionRound()[0]
+    distribution_round_enddate = distributor.distributionRound()[1]
 
-    assert registration_round_not_over is True
+    chain.sleep(60 * 60 * 48)
 
-def test_set_registration_round_as_not_admin_should_fail(distributor, sender):
-    with pytest.raises(VirtualMachineError):
-        set_registration_round(distributor, sender)
+    distribution_round_not_over = chain.time() > distribution_round_startdate and chain.time() < distribution_round_enddate
 
-def test_register_should_registered(distributor, admin, sender):
+    assert distribution_round_not_over is True
+
+def test_set_distribution_round_as_not_admin_should_fail(distributor, admin, sender, token, owner):
+    set_registration_round(distributor, admin)
+    set_distribution_parameters(distributor, admin, token, owner)
+
+    with reverts('Allows admin address only'):
+        set_distribution_round(distributor, sender)
+
+def test_set_distribution_round_before_parameters_should_fail(distributor, admin):
     set_registration_round(distributor, admin)
 
-    distributor.register({ "from": sender })
+    with reverts('Distribution parameters are not set'):
+        set_distribution_round(distributor, admin)
 
-    registration = distributor.registrations(sender)
-    is_registered = registration[2]
-
-    assert is_registered is True
-
-def test_register_twice_should_fail(distributor, admin, sender):
+def test_participate_should_participated(distributor, admin, sender, token, owner):
     set_registration_round(distributor, admin)
+    set_distribution_parameters(distributor, admin, token, owner)
+    set_distribution_round(distributor, admin)
 
-    distributor.register({ "from": sender })
-    with reverts('Address already registered'):
-        distributor.register({ "from": sender })
+    chain.sleep(60 * 60 * 48)
 
+    distributor.participate({ "from": sender })
 
-def test_register_when_round_is_over_should_fail(distributor, admin, sender):
+    is_participated = distributor.participations(sender)[1]
+
+    assert is_participated is True
+
+def test_participate_twice_should_faield(distributor, admin, sender, token, owner):
     set_registration_round(distributor, admin)
+    set_distribution_parameters(distributor, admin, token, owner)
+    set_distribution_round(distributor, admin)
 
-    transaction = distributor.register({ "from": sender })
+    chain.sleep(60 * 60 * 48)
 
-    assert transaction.revert_msg == 'Registration round is over'
+    distributor.participate({ "from": sender })
+    with reverts('Address already participated'):
+        distributor.participate({ "from": sender })

@@ -15,7 +15,6 @@ contract Distributor {
         address     owner;
 
         bool        isCreated;
-        bool        leftoverWithdrawn;
         bool        tokensDeposited;
 
         uint256     amountOfTokensToDistribute;
@@ -48,6 +47,8 @@ contract Distributor {
     mapping (address => Participation)  public participations;
     mapping (address => uint)           public addressToEvent;
     mapping (address => bool)           public addressToWithdraw;
+
+    bool                public distrubutionParametersSet;
 
     uint256             public vestingPrecision;
     uint256             public vestingEventsCount;
@@ -83,9 +84,9 @@ contract Distributor {
 
     modifier onlyIfRegistrationIsNotOver() {
         require(
-            block.timestamp < registrationRound.endDate &&
-            block.timestamp >= registrationRound.startDate || 
-            !registrationRound.isStopped, 
+            block.timestamp < registrationRound.endDate && 
+            block.timestamp >= registrationRound.startDate && 
+            !registrationRound.isStopped,
             'Registration round is over');
         _;
     }
@@ -245,6 +246,8 @@ contract Distributor {
         distribution.amountOfTokensToDistribute = _amountOfTokensToDistribute;
 
         vestingPrecision = _vestingPrecision;
+
+        distribution.isCreated = true;
     }
 
     function setRegistrationRound(uint256 _startDate, uint256 _endDate) public onlyAdmin {
@@ -258,6 +261,9 @@ contract Distributor {
     }
 
     function setDistributionRound(uint256 _startDate, uint256 _endDate) public onlyAdmin {
+        require(distribution.isCreated, 'Distribution parameters are not set');
+        require(_startDate > registrationRound.endDate, 'Distribution round must be later than registration round');
+
         distributionRound = DistributionRound({
             startDate: _startDate,
             endDate: _endDate
@@ -277,8 +283,7 @@ contract Distributor {
     }
 
     function depositTokens() public onlyDistributionOwner {
-        require(distribution.isCreated, 'Sale is not created');
-        require(distribution.tokensDeposited, 'Tokens has been deposited already');
+        require(!distribution.tokensDeposited, 'Tokens has been deposited already');
 
         distribution.tokensDeposited = true;
 
