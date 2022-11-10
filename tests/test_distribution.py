@@ -90,7 +90,7 @@ def test_participate_should_participated(distributor, admin, sender, token, owne
 
     assert is_participated is True
 
-def test_participate_twice_should_faield(distributor, admin, sender, token, owner):
+def test_participate_twice_should_failed(distributor, admin, sender, token, owner):
     set_registration_round(distributor, admin)
     set_distribution_parameters(distributor, admin, token, owner)
     set_distribution_round(distributor, admin)
@@ -100,3 +100,14 @@ def test_participate_twice_should_faield(distributor, admin, sender, token, owne
     distributor.participate({ "from": sender })
     with reverts('Address already participated'):
         distributor.participate({ "from": sender })
+
+def test_participate_when_distribution_is_over_should_failed(distributor, admin, sender, token, owner):
+    set_registration_round(distributor, admin)
+    set_distribution_parameters(distributor, admin, token, owner)
+    set_distribution_round(distributor, admin)
+
+    chain.sleep(60 * 60 * 200)
+
+    with reverts('Distribution round is over or not started yet'):
+        distributor.participate({ "from": sender })
+        

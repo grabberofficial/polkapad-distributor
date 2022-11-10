@@ -26,5 +26,5 @@ contract DistributorFactory {
         }
 
         return distributors;
-    } 
+    }
 }

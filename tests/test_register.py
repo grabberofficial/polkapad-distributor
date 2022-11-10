@@ -64,5 +64,5 @@ def test_register_when_round_is_over_should_fail(distributor, admin, sender):
 
     chain.sleep(60 * 60 * 48)
 
-    with reverts('Registration round is over'):
+    with reverts('Registration round is over or not started yet'):
         distributor.register({ "from": sender })

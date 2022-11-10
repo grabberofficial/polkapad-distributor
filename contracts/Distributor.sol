@@ -44,11 +44,12 @@ contract Distributor {
     }
 
     mapping (address => Registration)   public registrations;
+    mapping (uint256 => address)        public indexToRegistrations;
+    uint256                             public registrationsCount;
+
     mapping (address => Participation)  public participations;
     mapping (address => uint)           public addressToEvent;
     mapping (address => bool)           public addressToWithdraw;
-
-    bool                public distrubutionParametersSet;
 
     uint256             public vestingPrecision;
     uint256             public vestingEventsCount;
@@ -87,7 +88,7 @@ contract Distributor {
             block.timestamp < registrationRound.endDate && 
             block.timestamp >= registrationRound.startDate && 
             !registrationRound.isStopped,
-            'Registration round is over');
+            'Registration round is over or not started yet');
         _;
     }
 
@@ -95,7 +96,7 @@ contract Distributor {
         require(
             block.timestamp < distributionRound.endDate &&
             block.timestamp >= distributionRound.startDate,
-            'Distribution round is over');
+            'Distribution round is over or not started yet');
         _;
     }
 
@@ -103,6 +104,7 @@ contract Distributor {
         require(!registrations[msg.sender].isRegistered, 'Address already registered');
         
         registrations[msg.sender] = Registration(block.timestamp, 0, true);
+        registrationsCount++;
 
         emit Registered(msg.sender, block.timestamp);
     }
@@ -270,6 +272,17 @@ contract Distributor {
         });
 
         emit DistributionRoundSet(block.timestamp);
+    }
+
+    function getRegisteredUsers() public view returns (address[] memory) {
+        address[] memory addresses = new address[](registrationsCount);
+
+        for (uint i = 0; i < registrationsCount; i++) {
+            address registrationAddress = indexToRegistrations[i];
+            addresses[i] = registrationAddress;
+        }
+
+        return addresses;
     }
 
     function stopRegistrationRound() public onlyAdmin {
