@@ -14,7 +14,7 @@ def set_distribution_parameters(distributor, admin, token, owner):
 
     distributor.setDistributionParameters(
         amount_of_tokens_to_distribute,
-        1000,
+        100,
         owner,
         token,
         { "from": admin })
@@ -30,12 +30,11 @@ def set_distribution_round(distributor, admin):
     distributor.setDistributionRound(distribution_startdate, distribution_enddate, { "from": admin })
 
 def set_registration_round(distributor, admin):
-    today = chain.time()
-    tomorrow = today + 60 * 60 * 24
+    start_date = chain.time()
+    end_date = start_date + 60 * 60 * 24
+    # chain.sleep(60 * 60)
 
-    chain.sleep(60 * 60)
-
-    distributor.setRegistrationRound(today, tomorrow, { "from": admin })
+    distributor.setRegistrationRound(start_date, end_date, { "from": admin })
 
 def deploy_token(deployer):
     contract = Token.deploy("Test Token", "TST", 18, 1e21, { 'from': deployer })

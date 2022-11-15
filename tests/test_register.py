@@ -28,7 +28,7 @@ def sender():
 
 def test_set_registration_round_should_set(distributor, admin):
     set_registration_round(distributor, admin)
-    
+
     registration_round_startdate = distributor.registrationRound()[0]
     registration_round_enddate = distributor.registrationRound()[1]
     registration_round_stopped = distributor.registrationRound()[2]

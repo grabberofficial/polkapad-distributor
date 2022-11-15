@@ -1,5 +1,4 @@
 from brownie import accounts
-from brownie.exceptions import VirtualMachineError
 from scripts.deploy import *
 
 import pytest

@@ -7,7 +7,7 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 contract Distributor {
-    using SafeMath for uint256;
+    using SafeMath  for uint256;
     using SafeERC20 for IERC20;
 
     struct Distribution {
@@ -85,8 +85,8 @@ contract Distributor {
 
     modifier onlyIfRegistrationIsNotOver() {
         require(
-            block.timestamp < registrationRound.endDate && 
             block.timestamp >= registrationRound.startDate && 
+            block.timestamp <= registrationRound.endDate && 
             !registrationRound.isStopped,
             'Registration round is over or not started yet');
         _;
@@ -94,8 +94,8 @@ contract Distributor {
 
     modifier onlyIfDistributionIsNotOver() {
         require(
-            block.timestamp < distributionRound.endDate &&
-            block.timestamp >= distributionRound.startDate,
+            block.timestamp >= distributionRound.startDate &&
+            block.timestamp <= distributionRound.endDate,
             'Distribution round is over or not started yet');
         _;
     }
@@ -104,6 +104,7 @@ contract Distributor {
         require(!registrations[msg.sender].isRegistered, 'Address already registered');
         
         registrations[msg.sender] = Registration(block.timestamp, 0, true);
+        indexToRegistrations[registrationsCount] = msg.sender;
         registrationsCount++;
 
         emit Registered(msg.sender, block.timestamp);
@@ -121,10 +122,10 @@ contract Distributor {
         require(
             vestingPercentPerPortion.length > 0 &&
             vestingPortionsUnlockTime.length > 0,
-            'Vesting parameters already set'
+            'Vesting parameters are not set'
         );
         require(participations[msg.sender].isParticipated, 'Address is not participated in distribution');
-        require(addressToWithdraw[msg.sender], 'Address already widthdrawn');
+        require(!addressToWithdraw[msg.sender], 'Address has executed withdraw already');
 
         uint256 totalToWithdraw = 0;
         Registration storage registration = registrations[msg.sender];
@@ -138,15 +139,14 @@ contract Distributor {
                     .mul(vestingPercentPerPortion[i])
                     .div(vestingPrecision);
 
-                registration.distributionAmount = registration.distributionAmount.sub(amountWithdrawing);
                 totalToWithdraw = totalToWithdraw.add(amountWithdrawing);
             }
         }
 
-        addressToWithdraw[msg.sender] = true;
-
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
+
         distribution.token.safeTransfer(msg.sender, totalToWithdraw);
+        addressToWithdraw[msg.sender] = true;
         
         emit TokensWithdrawn(msg.sender, totalToWithdraw);
     }
@@ -253,11 +253,13 @@ contract Distributor {
     }
 
     function setRegistrationRound(uint256 _startDate, uint256 _endDate) public onlyAdmin {
-        registrationRound = RegistrationRound({
-            startDate: _startDate,
-            endDate: _endDate,
-            isStopped: false
-        });
+        require(
+            _startDate >= block.timestamp &&
+            _endDate > _startDate
+        );
+
+        registrationRound.startDate = _startDate;
+        registrationRound.endDate = _endDate;
 
         emit RegistrationRoundSet(block.timestamp);
     }
