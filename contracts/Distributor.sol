@@ -145,8 +145,8 @@ contract Distributor {
 
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
 
-        distribution.token.safeTransfer(msg.sender, totalToWithdraw);
         addressToWithdraw[msg.sender] = true;
+        distribution.token.safeTransfer(msg.sender, totalToWithdraw);
         
         emit TokensWithdrawn(msg.sender, totalToWithdraw);
     }

@@ -130,7 +130,7 @@ def test_withdraw_after_1_day_should_withdrawn_25_percents(distributor, admin, t
     distributor.setVestingParams(unlocking_times, percents, { "from": admin })
     distributor.setAddressDistributionAmount(sender, 50 * 10e18, { "from": admin })
 
-    chain.sleep(DAY * 1)
+    chain.sleep(DAY)
 
     distributor.withdraw({ "from": sender })
 
@@ -177,7 +177,7 @@ def test_withdraw_twice_should_fail(distributor, admin, token, deployer, sender)
     distributor.setVestingParams(unlocking_times, percents, { "from": admin })
     distributor.setAddressDistributionAmount(sender, 50 * 10e18, { "from": admin })
 
-    chain.sleep(DAY * 1)
+    chain.sleep(DAY)
 
     distributor.withdraw({ "from": sender })
     with reverts('Address has executed withdraw already'):
