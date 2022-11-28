@@ -51,15 +51,19 @@ contract Distributor {
     mapping (address => uint)           public addressToEvent;
     mapping (address => bool)           public addressToWithdraw;
 
+    uint256             public vestingEndDate;
     uint256             public vestingPrecision;
     uint256             public vestingEventsCount;
     uint256[]           public vestingPortionsUnlockTime;
     uint256[]           public vestingPercentPerPortion;
 
     address             public admin;
+
     Distribution        public distribution;
     RegistrationRound   public registrationRound;
     DistributionRound   public distributionRound;
+
+    bool                public leftoverWithdrawn;
 
     event Participated(address indexed account, uint256 timestamp);
     event Registered(address indexed account, uint256 timestamp);
@@ -101,13 +105,11 @@ contract Distributor {
     }
 
     function register() public onlyIfRegistrationIsNotOver {
-        require(!registrations[msg.sender].isRegistered, 'Address already registered');
-        
-        registrations[msg.sender] = Registration(block.timestamp, 0, true);
-        indexToRegistrations[registrationsCount] = msg.sender;
-        registrationsCount++;
+        _registerUser(msg.sender);
+    }
 
-        emit Registered(msg.sender, block.timestamp);
+    function register(address _address) public onlyIfRegistrationIsNotOver onlyAdmin {
+        _registerUser(_address);
     }
 
     function participate() public onlyIfDistributionIsNotOver {
@@ -144,8 +146,10 @@ contract Distributor {
         }
 
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
-
+        
         addressToWithdraw[msg.sender] = true;
+        distribution.totalTokensDistributed = distribution.totalTokensDistributed.add(totalToWithdraw);
+
         distribution.token.safeTransfer(msg.sender, totalToWithdraw);
         
         emit TokensWithdrawn(msg.sender, totalToWithdraw);
@@ -171,9 +175,11 @@ contract Distributor {
             totalToWithdraw = totalToWithdraw.add(amountWithdrawing);
         }
 
-        addressToWithdraw[msg.sender] = true;
-
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
+
+        addressToWithdraw[msg.sender] = true;
+        distribution.totalTokensDistributed = distribution.totalTokensDistributed.add(totalToWithdraw);
+
         distribution.token.safeTransfer(msg.sender, totalToWithdraw);
         
         emit TokensWithdrawn(msg.sender, totalToWithdraw);
@@ -276,6 +282,20 @@ contract Distributor {
         emit DistributionRoundSet(block.timestamp);
     }
 
+    function setVestingEndDate(uint256 _endDate) public onlyAdmin {
+        require(
+            vestingPercentPerPortion.length > 0 &&
+            vestingPortionsUnlockTime.length > 0,
+            'Vesting parameters are not set'
+        );
+        require(
+            _endDate > vestingPortionsUnlockTime[vestingPortionsUnlockTime.length - 1],
+            'The last day of the distribution must be later than the last unlock time'
+        );
+
+        vestingEndDate = _endDate;
+    }
+
     function getRegisteredUsers() public view returns (address[] memory) {
         address[] memory addresses = new address[](registrationsCount);
 
@@ -307,5 +327,28 @@ contract Distributor {
             address(this),
             distribution.amountOfTokensToDistribute
         );
+    }
+
+    function withdrawLeftover() public onlyAdmin {
+        require(vestingEndDate > 0, 'Vesting end date is not set');
+        require(block.timestamp >= vestingEndDate, 'Vesting period is not finished yet');
+        require(!leftoverWithdrawn, 'Leftover already withdrawn');
+
+        uint256 leftover = distribution.amountOfTokensToDistribute.sub(distribution.totalTokensDistributed);
+        require(leftover > 0, 'There is nothing to withdraw');
+        
+        leftoverWithdrawn = true;
+        
+        distribution.token.safeTransfer(msg.sender, leftover);
+    }
+
+    function _registerUser(address _address) private {
+        require(!registrations[_address].isRegistered, 'Address already registered');
+        
+        registrations[_address] = Registration(block.timestamp, 0, true);
+        indexToRegistrations[registrationsCount] = _address;
+        registrationsCount++;
+
+        emit Registered(_address, block.timestamp);
     }
 }
