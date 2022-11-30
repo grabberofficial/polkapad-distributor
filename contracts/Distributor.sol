@@ -43,6 +43,11 @@ contract Distributor {
         uint256             endDate;
     }
 
+    struct Allocation {
+        address             user;
+        uint256             amount;
+    }
+
     mapping (address => Registration)   public registrations;
     mapping (uint256 => address)        public indexToRegistrations;
     uint256                             public registrationsCount;
@@ -72,6 +77,7 @@ contract Distributor {
     event RegistrationRoundStopped(uint256 timestamp);
     event TokensWithdrawn(address indexed account, uint256 amount);
     event VestingParametersSet(uint256 timestamp);
+    event AllocationsSet(uint256 timestamp);
 
     constructor(address _admin) {
         admin = _admin;
@@ -126,6 +132,7 @@ contract Distributor {
             vestingPortionsUnlockTime.length > 0,
             'Vesting parameters are not set'
         );
+        require(registrations[msg.sender].isRegistered, 'Address is not registered');
         require(participations[msg.sender].isParticipated, 'Address is not participated in distribution');
         require(!addressToWithdraw[msg.sender], 'Address has executed withdraw already');
 
@@ -233,6 +240,19 @@ contract Distributor {
         require(vestingPrecision == precision, 'Precision percents issue');
 
         emit VestingParametersSet(block.timestamp);
+    }
+
+    function setAddressDistributionAmount(Allocation[] memory _allocations) public onlyAdmin {
+        require(_allocations.length > 0, 'The allocation array must contain one element at least');
+
+        for (uint i = 0; i < _allocations.length; i++) {
+            Allocation memory allocation = _allocations[i];
+            require(registrations[allocation.user].isRegistered, 'Provided address is not registered');
+
+            registrations[allocation.user].distributionAmount = allocation.amount;
+        }
+
+        emit AllocationsSet(block.timestamp);
     }
 
     function setAddressDistributionAmount(address _address, uint256 _amount) public onlyAdmin {
