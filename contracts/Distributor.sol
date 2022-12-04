@@ -114,7 +114,7 @@ contract Distributor {
         _registerUser(msg.sender);
     }
 
-    function register(address _address) public onlyIfRegistrationIsNotOver onlyAdmin {
+    function registerUser(address _address) public onlyIfRegistrationIsNotOver onlyAdmin {
         _registerUser(_address);
     }
 
@@ -242,7 +242,7 @@ contract Distributor {
         emit VestingParametersSet(block.timestamp);
     }
 
-    function setAddressDistributionAmount(Allocation[] memory _allocations) public onlyAdmin {
+    function setMultipleAddressDistributionAmount(Allocation[] memory _allocations) public onlyAdmin {
         require(_allocations.length > 0, 'The allocation array must contain one element at least');
 
         for (uint i = 0; i < _allocations.length; i++) {
