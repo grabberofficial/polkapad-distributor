@@ -72,6 +72,7 @@ contract Distributor {
 
     event Participated(address indexed account, uint256 timestamp);
     event Registered(address indexed account, uint256 timestamp);
+    event MultipleRegistrationCompleted(uint256 timestamp);
     event DistributionRoundSet(uint256 timestamp);
     event RegistrationRoundSet(uint256 timestamp);
     event RegistrationRoundStopped(uint256 timestamp);
@@ -116,6 +117,18 @@ contract Distributor {
 
     function registerUser(address _address) public onlyIfRegistrationIsNotOver onlyAdmin {
         _registerUser(_address);
+    }
+
+    function registerMultipleUsers(address[] memory _addresses) public onlyIfRegistrationIsNotOver onlyAdmin {
+        require(_addresses.length > 0, 'The addresses array must contain one element at least');
+
+        for (uint i = 0; i < _addresses.length; i++) {
+            if (!registrations[_addresses[i]].isRegistered) {
+                _registerUser(_addresses[i]);
+            }
+        }
+
+        emit MultipleRegistrationCompleted(block.timestamp);
     }
 
     function participate() public onlyIfDistributionIsNotOver {
