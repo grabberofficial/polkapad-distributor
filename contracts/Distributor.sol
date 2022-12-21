@@ -340,6 +340,13 @@ contract Distributor {
         return addresses;
     }
 
+    function getVestingPortions() public view returns (uint256[] memory) {
+        return vestingPercentPerPortion;
+    }
+    function getVestingUnlocks() public view returns (uint256[] memory) {
+        return vestingPortionsUnlockTime;
+    }
+
     function stopRegistrationRound() public onlyAdmin {
         registrationRound.isStopped = true;
 
@@ -351,6 +358,7 @@ contract Distributor {
     }
 
     function depositTokens() public onlyDistributionOwner {
+        require(distribution.isCreated, 'Distribution is not created');
         require(!distribution.tokensDeposited, 'Tokens has been deposited already');
 
         distribution.tokensDeposited = true;
