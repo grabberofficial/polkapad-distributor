@@ -60,6 +60,8 @@ contract Distributor {
     mapping (address => bool)           public addressToWithdraw;
 
     uint256             public registrationFee;
+    uint256             public totalRegistrationFee;
+    bool                public registrationFeeWithdrawn;
 
     uint256             public vestingEndDate;
     uint256             public vestingPrecision;
@@ -119,6 +121,7 @@ contract Distributor {
     function register() public payable onlyIfRegistrationIsNotOver {
         require(registrationFee > 0, 'Registration fee is not set');
         require(msg.value == registrationFee, 'Registration fee amount issue');
+        totalRegistrationFee += msg.value;
 
         _registerUser(msg.sender);
     }
@@ -410,6 +413,16 @@ contract Distributor {
         leftoverWithdrawn = true;
         
         distribution.token.safeTransfer(msg.sender, leftover);
+    }
+
+    function withdrawFee() public onlyAdmin {
+        require(block.timestamp >= registrationRound.endDate, 'Registration round is not finished yet');
+        require(!registrationFeeWithdrawn, 'Registration fee already withdrawn');
+        require(totalRegistrationFee > 0, 'There is nothing to withdraw');
+        
+        registrationFeeWithdrawn = true;
+        
+        payable(msg.sender).transfer(totalRegistrationFee);
     }
 
     function _registerUser(address _address) private {
