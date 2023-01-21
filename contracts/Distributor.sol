@@ -53,8 +53,13 @@ contract Distributor {
     uint256                             public registrationsCount;
 
     mapping (address => Participation)  public participations;
+    mapping (uint256 => address)        public indexToParticipiants;
+    uint256                             public participiantsCount;
+
     mapping (address => uint)           public addressToEvent;
     mapping (address => bool)           public addressToWithdraw;
+
+    uint256             public registrationFee;
 
     uint256             public vestingEndDate;
     uint256             public vestingPrecision;
@@ -111,7 +116,10 @@ contract Distributor {
         _;
     }
 
-    function register() public onlyIfRegistrationIsNotOver {
+    function register() public payable onlyIfRegistrationIsNotOver {
+        require(registrationFee > 0, 'Registration fee is not set');
+        require(msg.value == registrationFee, 'Registration fee amount issue');
+
         _registerUser(msg.sender);
     }
 
@@ -135,6 +143,8 @@ contract Distributor {
         require(!participations[msg.sender].isParticipated, 'Address already participated');
         
         participations[msg.sender] = Participation(block.timestamp, true);
+        indexToParticipiants[participiantsCount] = msg.sender;
+        participiantsCount++;
 
         emit Participated(msg.sender, block.timestamp);
     }
@@ -247,7 +257,7 @@ contract Distributor {
             vestingPortionsUnlockTime.push(_unlockingTimes[i]);
             vestingPercentPerPortion.push(_percents[i]);
 
-           precision = precision.add(_percents[i]);
+            precision = precision.add(_percents[i]);
         }
         
         require(vestingPrecision == precision, 'Precision percents issue');
@@ -340,6 +350,17 @@ contract Distributor {
         return addresses;
     }
 
+    function getParticipatedUsers() public view returns (address[] memory) {
+        address[] memory addresses = new address[](participiantsCount);
+
+        for (uint i = 0; i < participiantsCount; i++) {
+            address participiantsAddress = indexToParticipiants[i];
+            addresses[i] = participiantsAddress;
+        }
+
+        return addresses;
+    }
+
     function getVestingPortions() public view returns (uint256[] memory) {
         return vestingPercentPerPortion;
     }
@@ -355,6 +376,14 @@ contract Distributor {
 
     function setAddressEvent(address _address, uint _event) public onlyDistributionOwner {
        addressToEvent[_address] = _event;
+    }
+
+    function setRegistrationFee(uint256 _feeAmount) public onlyAdmin {
+        require(
+            block.timestamp < registrationRound.startDate, 
+            'Set registration fee is not possible while registration round is running');
+
+        registrationFee = _feeAmount;   
     }
 
     function depositTokens() public onlyDistributionOwner {
