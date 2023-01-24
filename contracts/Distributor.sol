@@ -48,6 +48,9 @@ contract Distributor {
         uint256             amount;
     }
 
+    mapping (uint256 => address)        public indexToClaimedUsers;
+    uint256                             public claimedUsersCount;
+
     mapping (address => Registration)   public registrations;
     mapping (uint256 => address)        public indexToRegistrations;
     uint256                             public registrationsCount;
@@ -179,6 +182,8 @@ contract Distributor {
         }
 
         require(totalToWithdraw > 0, 'There is nothing to widthdraw');
+        
+        indexToClaimedUsers[claimedUsersCount] = msg.sender;
         
         addressToWithdraw[msg.sender] = true;
         distribution.totalTokensDistributed = distribution.totalTokensDistributed.add(totalToWithdraw);
@@ -359,6 +364,17 @@ contract Distributor {
         for (uint i = 0; i < participiantsCount; i++) {
             address participiantsAddress = indexToParticipiants[i];
             addresses[i] = participiantsAddress;
+        }
+
+        return addresses;
+    }
+
+    function getClaimedUsers() public view returns (address[] memory) {
+        address[] memory addresses = new address[](claimedUsersCount);
+
+        for (uint i = 0; i < claimedUsersCount; i++) {
+            address claimedUserAddress = indexToClaimedUsers[i];
+            addresses[i] = claimedUserAddress;
         }
 
         return addresses;
