@@ -83,6 +83,7 @@ contract Distributor {
     event Participated(address indexed account, uint256 timestamp);
     event Registered(address indexed account, uint256 timestamp);
     event MultipleRegistrationCompleted(uint256 timestamp);
+    event MultipleParticipationCompleted(uint256 timestamp);
     event DistributionRoundSet(uint256 timestamp);
     event RegistrationRoundSet(uint256 timestamp);
     event RegistrationRoundStopped(uint256 timestamp);
@@ -146,13 +147,19 @@ contract Distributor {
     }
 
     function participate() public onlyIfDistributionIsNotOver {
-        require(!participations[msg.sender].isParticipated, 'Address already participated');
-        
-        participations[msg.sender] = Participation(block.timestamp, true);
-        indexToParticipiants[participiantsCount] = msg.sender;
-        participiantsCount++;
+        _participate(msg.sender);
+    }
 
-        emit Participated(msg.sender, block.timestamp);
+    function participateMultipleUsers(address[] memory _addresses) public onlyIfDistributionIsNotOver onlyAdmin {
+        require(_addresses.length > 0, 'The addresses array must contain one element at least');
+
+        for (uint i = 0; i < _addresses.length; i++) {
+            if (!participations[_addresses[i]].isParticipated) {
+                _participate(_addresses[i]);
+            }
+        }
+
+        emit MultipleParticipationCompleted(block.timestamp);
     }
 
     function withdraw() public {
@@ -449,5 +456,15 @@ contract Distributor {
         registrationsCount++;
 
         emit Registered(_address, block.timestamp);
+    }
+
+    function _participate(address _address) private {
+        require(!participations[_address].isParticipated, 'Address already participated');
+        
+        participations[_address] = Participation(block.timestamp, true);
+        indexToParticipiants[participiantsCount] = _address;
+        participiantsCount++;
+
+        emit Participated(_address, block.timestamp);
     }
 }
